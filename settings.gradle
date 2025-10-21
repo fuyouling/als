@@ -16,6 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+
+        maven { url 'https://api.xposed.info/' }
+        maven { url "https://nexus.iinti.cn/repository/maven-public/" }
     }
 }
 

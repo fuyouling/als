@@ -1,0 +1,4 @@
+//xposed_init
+com.example.als.HookMain
+//native_init
+libnativehook.so
