@@ -20,7 +20,7 @@ public class HookMain implements IXposedHookLoadPackage {
     private static final String YRX_PACKAGE_NAME = "com.yuanrenxue.challenge";
 
 
-    private static final String TARGET_CLASS = "com.yuanrenxue.challenge.three.ChallengeThreeNativeLib";
+    private static final String TARGET_CLASS = "com.yuanrenxue.challenge.two.NativeLib";
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         if(lpparam.processName.equals(lpparam.packageName)) {

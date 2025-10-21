@@ -6,5 +6,5 @@ public class NativeFunc {
     }
 
     //调用该函数时,内存中需要加载相对应的so,否则找不到
-    public native byte[] sign(int arg1);
+    public static native byte[] encrypt(byte[] arg0, long arg1);
 }

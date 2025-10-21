@@ -2,8 +2,10 @@ package com.example.als;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.util.Log;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -22,44 +24,30 @@ public class SekiroHandle implements ActionHandler {
 
     @Override
     public String action() {
-        return "handle003";
+        return "handle002";
     }
-    //    http://81.71.152.244:5612/business/invoke?group=tx_group&action=handle003&page=1
+    //http://81.71.152.244:5612/business/invoke?group=tx_group&action=handle002&page=1&time=1718787645123
     @Override
     public void handleRequest(SekiroRequest sekiroRequest, SekiroResponse sekiroResponse) {
+        int page = sekiroRequest.getIntValue("page");
+        long time = sekiroRequest.getLongValue("time");
+        Log.i("handleRequest","page:"+page+" time:"+time);;
 
-        CompletableFuture<byte[]> future = new CompletableFuture<>();
-        // 切换到主线程执行
-        // so中有主线程检测
-        mainHandler.post(() -> {
-            try {
-                int page = sekiroRequest.getIntValue("page");
-                Log.i("handleRequest","page:"+page);
-                byte[] signBytes = new NativeFunc().sign(page);
-                DebugHook.debugNativeCall(2);
-                future.complete(signBytes);
-            } catch (Exception e) {
-                future.completeExceptionally(e);
-            }
-        });
+        JSONObject jsonObject = new JSONObject();
+        //long v = 1718787645123L;
+        byte[] bytearray= String.format("%d:%d", page, time).getBytes(StandardCharsets.UTF_8);
+        //Log.i(TAG, "bytearray:"+ Arrays.toString(bytearray));
 
-        try {
-            byte[] signBytes = future.get(5, TimeUnit.SECONDS);
-            outputByteArr(signBytes);
-            String s = ChallengeThreeFragment.OooO0oO(signBytes);
-            Log.i("handleRequest",s);
-            //JSONObject result = Store.callEncrypt(page,time);
-            //Log.i("handleRequest","result:"+result.toString());;
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("sign", s);
-            sekiroResponse.success(jsonObject);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+        byte[] encryptedBytes = NativeFunc.encrypt(bytearray, time);
+        String base64Result = Base64.encodeToString(encryptedBytes, 10);
+
+        //Log.i(TAG, "base64Result:"+base64Result);
+        jsonObject.put("base64Result", base64Result);
+
+
+        //Log.i("handleRequest","result:"+result.toString());;
+        sekiroResponse.success(jsonObject);
+
 
     }
 
