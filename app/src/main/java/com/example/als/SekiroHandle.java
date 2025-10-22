@@ -1,82 +1,77 @@
 package com.example.als;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.lang.reflect.Field;
 
 import cn.iinti.sekiro3.business.api.fastjson.JSONObject;
 import cn.iinti.sekiro3.business.api.interfaze.ActionHandler;
 import cn.iinti.sekiro3.business.api.interfaze.SekiroRequest;
 import cn.iinti.sekiro3.business.api.interfaze.SekiroResponse;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class SekiroHandle implements ActionHandler {
 
+    private static final String TAG = "als";
 
-    private static Handler mainHandler = new Handler(Looper.getMainLooper());
+    public Object fragment;
+    public Field pageField;
+    public XC_LoadPackage.LoadPackageParam lpparam;
 
+    public SekiroHandle(Object fragment, Field pageField, XC_LoadPackage.LoadPackageParam lpparam) {
+        this.fragment = fragment;
+        this.pageField = pageField;
+        this.lpparam = lpparam;
+    }
 
     @Override
     public String action() {
-        return "handle003";
+        return "handle005";
     }
-    //    http://81.71.152.244:5612/business/invoke?group=tx_group&action=handle003&page=1
+    //    http://81.71.152.244:5612/business/invoke?group=tx_group&action=handle005&page=3
     @Override
     public void handleRequest(SekiroRequest sekiroRequest, SekiroResponse sekiroResponse) {
-
-        CompletableFuture<byte[]> future = new CompletableFuture<>();
-        // 切换到主线程执行
-        // so中有主线程检测
-        mainHandler.post(() -> {
-            try {
-                int page = sekiroRequest.getIntValue("page");
-                Log.i("handleRequest","page:"+page);
-                byte[] signBytes = new NativeFunc().sign(page);
-                DebugHook.debugNativeCall(2);
-                future.complete(signBytes);
-            } catch (Exception e) {
-                future.completeExceptionally(e);
-            }
-        });
-
         try {
-            byte[] signBytes = future.get(5, TimeUnit.SECONDS);
-            outputByteArr(signBytes);
-            String s = ChallengeThreeFragment.OooO0oO(signBytes);
-            Log.i("handleRequest",s);
-            //JSONObject result = Store.callEncrypt(page,time);
-            //Log.i("handleRequest","result:"+result.toString());;
+            // 从请求中获取页码（默认 1）
+            int inputPage = sekiroRequest.getIntValue("page");
+            // 更新 Fragment 中的页码
+            pageField.set(fragment, inputPage);
+            Log.i(TAG, "inputPage:"+inputPage);
+            // 生成 content（即 s）：页码 + 固定字符串 + 时间戳
+            String fixedStr = (String) XposedHelpers.callStaticMethod(
+                    lpparam.classLoader.loadClass("o0O000oo.o000oOoO"),
+                    "OooO00o",
+                    0x3638F15D2B90E009L // 固定常量（下拉刷新和加载更多可能不同，需确认）
+            );
+            Log.i(TAG, "fixedStr:"+fixedStr);
+            long timestamp = System.currentTimeMillis();
+            String content = inputPage + fixedStr + timestamp;
+            Log.i(TAG, "content:"+content);
+            // 生成 sign（即 s1）：调用 DexUtils 中的加密方法
+            Object dexUtils = XposedHelpers.callStaticMethod(
+                    lpparam.classLoader.loadClass("com.yuanrenxue.challenge.four.DexUtils"),
+                    "OooO00o"
+            );
+            String sign = (String) XposedHelpers.callMethod(
+                    dexUtils,
+                    "OooO0O0",
+                    XposedHelpers.callMethod(fragment, "getContext"), // context
+                    fragment, // object0（当前 Fragment）
+                    content // 待签名的字符串 s
+            );
+            Log.i(TAG, "sign:"+sign);
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("sign", s);
+            jsonObject.put("content", content);
+            jsonObject.put("sign", sign);
+            //jsonObject.put("timestamp", timestamp);
+            // 将结果返回给 Sekiro 客户端
             sekiroResponse.success(jsonObject);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (TimeoutException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            Log.e(TAG, "生成参数失败", e); // 打印完整堆栈
+            sekiroResponse.failed("生成参数失败：" + e.getMessage());
         }
 
-    }
-
-    public static void outputByteArr(byte[] originalSign){
-        // 用 for 循环遍历，打印每个字节的十进制值
-        StringBuilder decimalLog = new StringBuilder();
-        decimalLog.append("[");
-        for (int i = 0; i < originalSign.length; i++) {
-            decimalLog.append(originalSign[i]); // 直接取 byte 元素（十进制）
-            if (i != originalSign.length - 1) {
-                decimalLog.append(", "); // 非最后一个元素，加逗号分隔
-            }
-        }
-        decimalLog.append("]");
-
-        // 打印结果
-        Log.i("originalSignArr:",decimalLog.toString());
     }
 
 }
